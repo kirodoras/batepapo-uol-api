@@ -22,6 +22,14 @@ const nameSchema = joi.object({
 	name: joi.string().required()
 });
 
+const fromSchema = joi.string().required();
+
+const messageShema = joi.object({
+	to: joi.string().required(),
+	text: joi.string().required(),
+	type: joi.string().valid('message', 'private_message').required()
+});
+
 app.post("/participants", async (req, res) => {
 	const validation = nameSchema.validate(req.body, { abortEarly: true });
 
@@ -32,9 +40,9 @@ app.post("/participants", async (req, res) => {
 
 	const { name } = req.body;
 
-	const users = await db.collection("participants").findOne({ name: name });
+	const user = await db.collection("participants").findOne({ name: name });
 
-	if (users) {
+	if (user) {
 		res.sendStatus(409);
 		return;
 	}
@@ -50,10 +58,37 @@ app.post("/participants", async (req, res) => {
 	}
 });
 
-app.get("/participants", async (req,res) => {
+app.get("/participants", async (req, res) => {
 	try {
-		const participants =  await db.collection("participants").find().toArray();
+		const participants = await db.collection("participants").find().toArray();
 		res.status(200).send(participants);
+	} catch {
+		res.sendStatus(500);
+	}
+});
+
+app.post("/messages", async (req, res) => {
+	const validationFrom = fromSchema.validate(req.headers.user, { abortEarly: true });
+	const validationMessage = messageShema.validate(req.body, { abortEarly: true });
+
+	if (validationFrom.error || validationMessage.error) {
+		res.sendStatus(422);
+		return;
+	}
+
+	const from = req.headers.user;
+	const { to, text, type } = req.body;
+
+	const user = await db.collection("participants").findOne({ name: to });
+
+	if (!user && to !== 'Todos') {
+		res.sendStatus(406);
+		return;
+	}
+
+	try {
+		await SendMessage(from, to, text, type);
+		res.sendStatus(201);
 	} catch {
 		res.sendStatus(500);
 	}
@@ -64,8 +99,8 @@ async function SendMessage(from, to, text, type) {
 	try {
 		await db.collection("messages")
 			.insertOne(
-				{ 
-					from, 
+				{
+					from,
 					to,
 					text,
 					type,
