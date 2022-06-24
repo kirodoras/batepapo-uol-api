@@ -50,6 +50,15 @@ app.post("/participants", async (req, res) => {
 	}
 });
 
+app.get("/participants", async (req,res) => {
+	try {
+		const participants =  await db.collection("participants").find().toArray();
+		res.status(200).send(participants);
+	} catch {
+		res.sendStatus(500);
+	}
+});
+
 async function SendMessage(from, to, text, type) {
 	const time = dayjs().format('HH:mm:ss');
 	try {
