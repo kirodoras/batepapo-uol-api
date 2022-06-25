@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import dotenv from 'dotenv';
 import joi from 'joi';
 import dayjs from 'dayjs';
@@ -156,6 +156,18 @@ app.post("/status", async (req, res) => {
 		res.sendStatus(500);
 	}
 });
+
+setInterval(async () => {
+	const currentStatus = Date.now();
+	const participants = await db.collection("participants").find().toArray();
+
+	for (let i = 0; i < participants.length; i++) {
+		if (currentStatus - participants[i].lastStatus >= 10000) {
+			await db.collection("participants").deleteOne({ _id: ObjectId(participants[i]._id) });
+			await SendMessage(participants[i].name, 'Todos', 'sai da sala...', 'status');
+		}
+	}
+}, 15000);
 
 async function resizeArr(num, arr) {
 	const length = arr.length;
