@@ -125,6 +125,38 @@ app.get("/messages", async (req, res) => {
 	}
 });
 
+app.post("/status", async (req, res) => {
+	const validationUser = fromSchema.validate(req.headers.user, { abortEarly: true });
+
+	if (validationUser.error) {
+		res.sendStatus(422);
+		return;
+	}
+
+	const user = req.headers.user;
+
+	const userFound = await db.collection("participants").findOne({ name: user });
+
+	if (!userFound) {
+		res.sendStatus(404);
+		return;
+	}
+
+	try {
+		await db.collection("participants")
+			.updateOne({
+				name: user
+			}, {
+				$set: {
+					lastStatus: Date.now()
+				}
+			});
+		res.sendStatus(200);
+	} catch {
+		res.sendStatus(500);
+	}
+});
+
 async function resizeArr(num, arr) {
 	const length = arr.length;
 	if (num >= length) return arr;
