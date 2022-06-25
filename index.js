@@ -11,7 +11,7 @@ app.use(express.json());
 app.use(cors());
 dotenv.config();
 
-const mongoClient = new MongoClient(process.env.MONGO_URL);
+const mongoClient = new MongoClient(process.env.MONGO_URI);
 
 let db;
 mongoClient.connect().then(() => {
@@ -93,6 +93,44 @@ app.post("/messages", async (req, res) => {
 		res.sendStatus(500);
 	}
 });
+
+app.get("/messages", async (req, res) => {
+	const validationUser = fromSchema.validate(req.headers.user, { abortEarly: true });
+
+	if (validationUser.error) {
+		res.sendStatus(422);
+		return;
+	}
+
+	const user = req.headers.user;
+	const limit = parseInt(req.query.limit);
+
+	try {
+		const messages = await db.collection("messages").find().toArray();
+		const filterMessages = messages.filter((value) => {
+			if (value.type === 'private_message' && value.from !== user && value.to !== user) {
+				return false;
+			}
+			return true;
+		});
+
+		if (!isNaN(limit)) {
+			const resizeMessages = await resizeArr(limit, filterMessages);
+			res.status(200).send(resizeMessages);
+		} else {
+			res.status(200).send(filterMessages);
+		}
+	} catch {
+		res.sendStatus(500);
+	}
+});
+
+async function resizeArr(num, arr) {
+	const length = arr.length;
+	if (num >= length) return arr;
+	const result = arr.slice(length - num, length);
+	return result;
+}
 
 async function SendMessage(from, to, text, type) {
 	const time = dayjs().format('HH:mm:ss');
