@@ -157,12 +157,38 @@ app.post("/status", async (req, res) => {
 	}
 });
 
+app.delete("/messages/:id", async (req, res) => {
+	const validationUser = fromSchema.validate(req.headers.user, { abortEarly: true });
+
+	if (validationUser.error) {
+		res.sendStatus(422);
+		return;
+	}
+
+	const user = req.headers.user;
+	const id = req.params.id;
+
+	try {
+		const message = await db.collection("messages").findOne({ _id: ObjectId(id) });
+
+		if (message.from !== user) {
+			res.sendStatus(401);
+			return;
+		}
+		
+		await db.collection("messages").deleteOne({ _id: message._id });
+		res.sendStatus(200);
+	} catch {
+		res.sendStatus(404);
+	}
+});
+
 setInterval(async () => {
 	const currentStatus = Date.now();
 	const participants = await db.collection("participants").find().toArray();
 
 	for (let i = 0; i < participants.length; i++) {
-		if (currentStatus - participants[i].lastStatus >= 10000) {
+		if (currentStatus - participants[i].lastStatus > 10000) {
 			await db.collection("participants").deleteOne({ _id: ObjectId(participants[i]._id) });
 			await SendMessage(participants[i].name, 'Todos', 'sai da sala...', 'status');
 		}
