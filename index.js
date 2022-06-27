@@ -146,7 +146,7 @@ app.post("/status", async (req, res) => {
 		const currentStatus = Date.now();
 		await db.collection("participants")
 			.updateOne({
-				name: user
+				name: userFound.name
 			}, {
 				$set: {
 					lastStatus: currentStatus
