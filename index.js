@@ -143,12 +143,13 @@ app.post("/status", async (req, res) => {
 	}
 
 	try {
+		const currentStatus = Date.now();
 		await db.collection("participants")
 			.updateOne({
 				name: user
 			}, {
 				$set: {
-					lastStatus: Date.now()
+					lastStatus: currentStatus
 				}
 			});
 		res.sendStatus(200);
@@ -175,7 +176,7 @@ app.delete("/messages/:id", async (req, res) => {
 			res.sendStatus(401);
 			return;
 		}
-		
+
 		await db.collection("messages").deleteOne({ _id: message._id });
 		res.sendStatus(200);
 	} catch {
@@ -183,15 +184,58 @@ app.delete("/messages/:id", async (req, res) => {
 	}
 });
 
-setInterval(async () => {
-	const currentStatus = Date.now();
-	const participants = await db.collection("participants").find().toArray();
+app.put("/messages/:id", async (req, res) => {
+	const validationFrom = fromSchema.validate(req.headers.user, { abortEarly: true });
+	const validationMessage = messageShema.validate(req.body, { abortEarly: true });
 
-	for (let i = 0; i < participants.length; i++) {
-		if (currentStatus - participants[i].lastStatus > 10000) {
-			await db.collection("participants").deleteOne({ _id: ObjectId(participants[i]._id) });
-			await SendMessage(participants[i].name, 'Todos', 'sai da sala...', 'status');
+	if (validationFrom.error || validationMessage.error) {
+		res.sendStatus(422);
+		return;
+	}
+
+	const from = req.headers.user;
+	const { text } = req.body;
+	const id = req.params.id;
+
+	try {
+		const message = await db.collection("messages").findOne({ _id: ObjectId(id) });
+		console.log(message._id)
+		if (!message) {
+			res.sendStatus(404);
+			return;
 		}
+		if (message.from !== from) {
+			res.sendStatus(401);
+			return;
+		}
+
+		await db.collection("messages")
+			.updateOne({
+				_id: message._id
+			}, {
+				$set: {
+					text: text
+				}
+			});
+		res.sendStatus(200);
+	} catch (error) {
+		res.sendStatus(500);
+	}
+});
+
+setInterval(async () => {
+	try {
+		const participants = await db.collection("participants").find().toArray();
+
+		for (let participant of participants) {
+			const currentStatus = Date.now();
+			if (participant.lastStatus < currentStatus - 10000) {
+				await db.collection("participants").deleteOne({ _id: participant._id });
+				await SendMessage(participant.name, 'Todos', 'sai da sala...', 'status');
+			}
+		}
+	} catch (error) {
+		console.log(error);
 	}
 }, 15000);
 
