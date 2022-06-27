@@ -229,13 +229,16 @@ setInterval(async () => {
 
 		for (let participant of participants) {
 			const currentStatus = Date.now();
-			if (participant.lastStatus < currentStatus - 10000) {
+			console.log(currentStatus - participant.lastStatus);
+			if (currentStatus - participant.lastStatus > 10000) {
 				await db.collection("participants").deleteOne({ _id: participant._id });
 				await SendMessage(participant.name, 'Todos', 'sai da sala...', 'status');
 			}
 		}
+		return;
 	} catch (error) {
 		console.log(error);
+		return;
 	}
 }, 15000);
 
